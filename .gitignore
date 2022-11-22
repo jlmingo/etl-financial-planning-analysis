@@ -2,6 +2,11 @@
 input/
 output/
 
+#certain files
+src/auxiliar.py
+src/update_capex.py
+src/update_files.py
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]

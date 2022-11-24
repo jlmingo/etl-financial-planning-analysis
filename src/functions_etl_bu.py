@@ -1,10 +1,12 @@
 import calendar
 import pandas as pd
 from numpy import nan as np_nan
+import numpy as np
+import datetime
 
 #general functions
 def check_nulls(df, col):
-    assert df[df[col].isnull()].shape[0] == 0, f"Warning, nulls in {col}"
+    assert df[df[col].isnull()].shape[0] == 0, f"Warning, nulls in {col}."
 
 #revenue and opex functions
 def get_revenue_opex(path_asset_management_input, sheet_name, year, df_dim_accounts):
@@ -44,11 +46,11 @@ def get_revenue_opex(path_asset_management_input, sheet_name, year, df_dim_accou
     dict_rename_unnamed = dict(zip(list_of_unnamed, list_of_months))
     dict_rename_columns.update(dict_rename_unnamed)
     df.rename(columns=dict_rename_columns, inplace=True)
-    
+
     #drop values where the PL_Account is a general category or subtotal
-    #TODO: remove Other Professional Services from list when origin data is corrected
+    #TODO: check if the below works (Other Professional Services is now removed)
     drop_values = [
-        "Total Revenue", "Gross Profit", "EBITDA", "Other Professional Services"
+        "Total Revenue", "Gross Profit", "EBITDA"
     ]
     
     idx_drop = df[df.PL_Account.isin(drop_values)].index
@@ -60,7 +62,9 @@ def get_revenue_opex(path_asset_management_input, sheet_name, year, df_dim_accou
     df.reset_index(drop=True, inplace=True)
 
     #drop rows where values in months are null
-    df.dropna(subset=list_of_months, inplace=True)
+    
+    df = df[~df[list_of_months].isnull().all(1)]
+    
     df.reset_index(drop=True, inplace=True)
 
     #pending: ensure no values of drop_values are within "subcategory"
@@ -78,7 +82,9 @@ def get_revenue_opex(path_asset_management_input, sheet_name, year, df_dim_accou
     
     return df
 
-def transform_revenue_opex(df_concat, list_of_months, df_selector, df_dim_project, df_fx):
+#TODO: remove df_selector from parameters, comments and the main execution
+def transform_revenue_opex(df_concat, list_of_months, df_selector, df_dim_company, df_fx):
+
     #iterate over sheets
     df = (pd.melt(
         df_concat,
@@ -100,7 +106,7 @@ def transform_revenue_opex(df_concat, list_of_months, df_selector, df_dim_projec
 
     #add currency
     selected_merge = ["Project_Name", "Currency"]
-    df = df.merge(df_dim_project[selected_merge], on="Project_Name", how="left")
+    df = df.merge(df_dim_company[selected_merge], on="Project_Name", how="left")
     check_nulls(df, "Currency")
 
     #add fx
@@ -125,4 +131,225 @@ def transform_revenue_opex(df_concat, list_of_months, df_selector, df_dim_projec
     return df
 
 #capex and devex functions
+def get_capex_sheet_data(df, sheet_name, year, only_devex_tabs):
+    
+    print(f"Executing transform function for {sheet_name}")
 
+
+    #df = pd.read_excel(path_capex, sheet_name=sheet_name, skiprows=range(3))
+    
+    #prepare columns and renames
+    list_of_months = [x[0:3] + "-" + str(year)[-2:] for x in list(calendar.month_name) if x != ""]
+    cols_selected_year = [col for col in df.columns if type(col) == datetime.datetime and col.year == year]
+    rename_selected_year = [col.strftime("%b-%y") for col in df.columns if type(col) == datetime.datetime and col.year == year]
+    # cols_selected_year = [col for col in df.columns if type(col) == datetime.datetime]
+    # rename_selected_year = [col.strftime("%b-%y") for col in df.columns if type(col) == datetime.datetime ]
+    dict_rename_dates = dict(zip(cols_selected_year, rename_selected_year))
+    df.rename(columns=dict_rename_dates, inplace=True)
+    
+    #Select and rename columns
+    selected_columns = [
+        "Project Name ",
+        "Cash Item ", "Milestones", "%Milestone", 
+    ]
+    selected_columns.extend(rename_selected_year)
+    df = df[selected_columns]
+    rename_columns = {
+        "Project Name ": "Project_Name",
+        "Cash Item ": "Cash_Item"
+    }
+    df.rename(columns=rename_columns, inplace=True)
+
+    #TODO remove this manual step when data is corrected in the source
+    #correct USA
+    if sheet_name == "USA":
+        df["Project_Name"] = "USA"
+
+    #Correct project names
+    if sheet_name == "ALTEN GREENFIELD":
+        df["Project_Name"] = "ALTEN GREENFIELD"
+
+    #devex data
+    a = df[df.Cash_Item == "Development Payments "].index
+    assert len(a) == 1
+    a = a[0]
+
+    b = df[df.Cash_Item == "Total Cash Flow Developmemnt "].index
+    assert len(b) == 1
+    b = b[0]
+
+    df_devex = df.iloc[a+1:b,:].copy()
+    df_devex["Investment_Type"] = "DEVEX"
+
+    #correct VAT lines in Investment_Type for devex
+    df_devex["Investment_Type"] = np.where(
+        df_devex["Cash_Item"].str.contains("VAT"),
+        "VAT DEVEX",
+        df_devex["Investment_Type"]
+    )
+
+    #capex data - only for selected tabs
+    if sheet_name not in only_devex_tabs:
+        a = df[df.Cash_Item == "EPC Payments "].index
+        assert len(a) == 1
+        a = a[0]
+
+        b = df[df.Cash_Item == "Total Cash Flow EPC "].index
+        assert len(b) == 1
+        b = b[0]
+
+        df_capex = df.iloc[a+1:b, :].copy()
+        df_capex["Investment_Type"] = "CAPEX"
+
+        #correct VAT lines in Investment_Type for devex
+        df_capex["Investment_Type"] = np.where(
+            df_capex["Cash_Item"].str.contains("VAT"),
+            "VAT CAPEX",
+            df_capex["Investment_Type"]
+        )
+
+        #concat dataframes
+        df = pd.concat([df_devex, df_capex], ignore_index=True)
+        df.reset_index(drop=True, inplace=True)
+    
+    else:
+        df = df_devex
+    
+    #correct VAT lines in Investment_Type
+    #df["Investment_Type"] = np.where(
+    #    df["Cash_Item"].str.contains("VAT"),
+    #    "VAT",
+    #    df["Investment_Type"]
+    #)
+
+    #melt table
+    id_vars_values = ["Project_Name", "Cash_Item", "Milestones", "%Milestone", "Investment_Type"]
+    df = (pd.melt(
+        df,
+        id_vars=id_vars_values,
+        value_vars=rename_selected_year,
+        var_name="Date",
+        value_name="Amount"))
+    
+    #correct data where there is a dash instead of a 0
+    df.loc[:, "Amount"] = np.where(df.Amount == "-", 0, df.Amount)
+    df["Amount"] = df["Amount"].astype("float64")
+    df.Amount.fillna(0, inplace=True)
+    df.loc[:, "Amount"] = df.Amount.round(4)
+    df = df[df.Amount != 0]
+
+    #correct date
+    df["Date"] = pd.to_datetime(df.Date, format="%b-%y")
+    
+    return df
+
+#capex and devex functions
+def get_total_capex(df, sheet_name, year, only_devex_tabs):
+    
+    print(f"Executing transform function for {sheet_name}")
+
+
+    #df = pd.read_excel(path_capex, sheet_name=sheet_name, skiprows=range(3))
+    
+    #prepare columns and renames
+    list_of_months = [x[0:3] + "-" + str(year)[-2:] for x in list(calendar.month_name) if x != ""]
+    cols_selected_year = [col for col in df.columns if type(col) == datetime.datetime and col.year == year]
+    rename_selected_year = [col.strftime("%b-%y") for col in df.columns if type(col) == datetime.datetime and col.year == year]
+    dict_rename_dates = dict(zip(cols_selected_year, rename_selected_year))
+    df.rename(columns=dict_rename_dates, inplace=True)
+    
+    #Select and rename columns
+    selected_columns = [
+        "Project Name ",
+        "Cash Item ", "Milestones", "%Milestone", 
+    ]
+    selected_columns.extend(rename_selected_year)
+    df = df[selected_columns]
+    rename_columns = {
+        "Project Name ": "Project_Name",
+        "Cash Item ": "Cash_Item"
+    }
+    df.rename(columns=rename_columns, inplace=True)
+
+    #TODO remove this manual step when data is corrected in the source
+    #correct USA
+    if sheet_name == "USA":
+        df["Project_Name"] = "USA"
+
+    #Correct project names
+    if sheet_name == "ALTEN GREENFIELD":
+        df["Project_Name"] = "ALTEN GREENFIELD"
+
+    #devex data
+    a = df[df.Cash_Item == "Development Payments "].index
+    assert len(a) == 1
+    a = a[0]
+
+    b = df[df.Cash_Item == "Total Cash Flow Developmemnt "].index
+    assert len(b) == 1
+    b = b[0]
+
+    df_devex = df.iloc[a+1:b,:].copy()
+    df_devex["Investment_Type"] = "DEVEX"
+
+    #correct VAT lines in Investment_Type for devex
+    df_devex["Investment_Type"] = np.where(
+        df_devex["Cash_Item"].str.contains("VAT"),
+        "VAT DEVEX",
+        df_devex["Investment_Type"]
+    )
+
+    #capex data - only for selected tabs
+    if sheet_name not in only_devex_tabs:
+        a = df[df.Cash_Item == "EPC Payments "].index
+        assert len(a) == 1
+        a = a[0]
+
+        b = df[df.Cash_Item == "Total Cash Flow EPC "].index
+        assert len(b) == 1
+        b = b[0]
+
+        df_capex = df.iloc[a+1:b, :].copy()
+        df_capex["Investment_Type"] = "CAPEX"
+
+        #correct VAT lines in Investment_Type for devex
+        df_capex["Investment_Type"] = np.where(
+            df_capex["Cash_Item"].str.contains("VAT"),
+            "VAT CAPEX",
+            df_capex["Investment_Type"]
+        )
+
+        #concat dataframes
+        df = pd.concat([df_devex, df_capex], ignore_index=True)
+        df.reset_index(drop=True, inplace=True)
+    
+    else:
+        df = df_devex
+    
+    #correct VAT lines in Investment_Type
+    #df["Investment_Type"] = np.where(
+    #    df["Cash_Item"].str.contains("VAT"),
+    #    "VAT",
+    #    df["Investment_Type"]
+    #)
+
+    #melt table
+    id_vars_values = ["Project_Name", "Cash_Item", "Milestones", "%Milestone", "Investment_Type"]
+    df = (pd.melt(
+        df,
+        id_vars=id_vars_values,
+        value_vars=rename_selected_year,
+        var_name="Date",
+        value_name="Amount"))
+    
+    #correct data where there is a dash instead of a 0
+    df.loc[:, "Amount"] = np.where(df.Amount == "-", 0, df.Amount)
+    df["Amount"] = df["Amount"].astype("float64")
+    df.Amount.fillna(0, inplace=True)
+    df.loc[:, "Amount"] = df.Amount.round(4)
+    df = df[df.Amount != 0]
+
+    #correct date
+    df["Date"] = pd.to_datetime(df.Date, format="%b-%y")
+    
+    return df

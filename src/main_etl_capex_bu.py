@@ -18,13 +18,13 @@ only_devex_tabs = [
     "EN494a", "EN494c", "MOLE", "TP02",
     "CALTO", "CASTELGOFF2", "BOSARO", "ROVIGO", "VALSAMOGGIA",
     "FR01", "TR01", "ENNA1",
-    "SIGNORA", "SPARACIA", "VALLATA", "ISCHIA DI CASTRO"
+    "SIGNORA", "SPARACIA", "VALLATA", "ISCHIA DI CASTRO",
 ]
 
 assert set(only_devex_tabs).issubset(projects_capex), "Warning, review values."
 
 #exclude detected tabs not to be included
-exclude_tabs = ["SUMMARY USD", "SUMMARY LCY", "INDEX", "PROJECT DB"]
+exclude_tabs = ["SUMMARY USD", "SUMMARY LCY", "INDEX", "PROJECT DB", "SCENARIO"]
 
 #get values only for analysis
 projects_to_analyze = [project for project in projects_capex if project not in exclude_tabs and ">>>" not in project]
@@ -199,13 +199,16 @@ assert set(filter_out).issubset(set(df_capex_total.Project_Name.unique()))
 
 df_capex_total = df_capex_total[~df_capex_total.Project_Name.isin(filter_out)]
 
+#set flag for devex expenses that should not be considered
+#df_capex_global[""]
+
 statement_line="capex_devex"
 
 #OUTPUT FULL CAPEX-DEVEX
-output_path_csv = os.path.join(output_path, scenario + "_" + statement_line + "_full_life_" + ".csv")
-output_path_parquet = os.path.join(output_path, scenario + "_" + statement_line + "_full_life_" + ".parquet")
-df_capex_total.to_csv(output_path_csv, index=False)
-df_capex_total.to_parquet(output_path_parquet, index=False)
+# output_path_csv = os.path.join(output_path, scenario + "_" + statement_line + "_full_life_" + ".csv")
+# output_path_parquet = os.path.join(output_path, scenario + "_" + statement_line + "_full_life_" + ".parquet")
+# df_capex_total.to_csv(output_path_csv, index=False)
+# df_capex_total.to_parquet(output_path_parquet, index=False)
 
 #OUTPUT CAPEX-DEVEX23
 df_capex_total = df_capex_total[df_capex_total.Date.dt.year == YEAR]
@@ -214,4 +217,4 @@ output_path_parquet = os.path.join(output_path, scenario + "_" + statement_line 
 df_capex_total.to_csv(output_path_csv, index=False)
 df_capex_total.to_parquet(output_path_parquet, index=False)
 
-print(f"Finalized with following tabs not used: ", {tabs})
+#print(f"Finalized with following tabs not used: ", {tabs})

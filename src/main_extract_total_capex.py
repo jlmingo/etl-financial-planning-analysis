@@ -3,7 +3,7 @@ import pandas as pd
 from inputs import (scenario, YEAR, path_capex_global, path_capex_chile, filter_out)
 
 #general values
-cash_items = "Total Cash Flow EPC "
+cash_items = ["Total Cash Flow EPC ", "VAT payments ", ""]
 
 #TODO add filter to get VAT
 

@@ -22,13 +22,16 @@ def get_revenue_opex(path_asset_management_input, sheet_name, year, df_dim_accou
     dtype = dict(zip(list_of_unnamed, float_types))
     
     #read file
-    df = pd.read_excel(path_asset_management_input, sheet_name=sheet_name, usecols="B:R", skiprows=range(76), dtype=dtype)
-    
+    if sheet_name != "GASKELL":
+        df = pd.read_excel(path_asset_management_input, sheet_name=sheet_name, usecols="B:R", skiprows=range(76), dtype=dtype)
+    elif sheet_name == "GASKELL":
+        df = pd.read_excel(path_asset_management_input, sheet_name=sheet_name, usecols="B:R", skiprows=range(88), dtype=dtype)
+
     #drop nan values
     drop_values = [
         np_nan
     ]
-    
+
     idx_drop = df[df["Unnamed: 1"].isin(drop_values)].index
     df.drop(idx_drop, inplace=True)
     df.reset_index(drop=True, inplace=True)
@@ -57,16 +60,18 @@ def get_revenue_opex(path_asset_management_input, sheet_name, year, df_dim_accou
     df.drop(idx_drop, inplace=True)
     df.reset_index(drop=True, inplace=True)
 
+    #substitute zeros by nulls
+    # df[list_of_months] = df[list_of_months].replace(0, np.nan)
+
     #drop rows where all values are null
     df.dropna(how='all', inplace=True)
     df.reset_index(drop=True, inplace=True)
 
     #drop rows where values in months are null
-    
     df = df[~df[list_of_months].isnull().all(1)]
     
     df.reset_index(drop=True, inplace=True)
-
+    
     #pending: ensure no values of drop_values are within "subcategory"
     valid_pl_amounts = set(df_dim_accounts.PL_Description_SubCategory.unique())
     unique_pl_amounts = set(df.PL_Account.unique())

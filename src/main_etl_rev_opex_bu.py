@@ -3,13 +3,11 @@ import os
 from numpy import nan as np_nan
 from datetime import datetime, date
 import calendar
-from inputs import (path_asset_management_input, YEAR,
+from inputs import (path_asset_management_input, path_amortization, YEAR,
 df_dim_accounts, df_selector, df_dim_company, dim_fx, companies_dim_company, output_path, scenario)
 from functions_etl_bu import check_nulls, get_revenue_opex, transform_revenue_opex
 
 #TODO: add cash flow figures
-print(companies_dim_company)
-print(df_selector)
 #TODO: REMOVE df_selector filtered by SPV WHEN COMPANIES ARE OK! filter out companies that are not in dim_company and convert to assert
 companies_not_in_dim_company = df_selector[~df_selector.Project_Name.isin(companies_dim_company)].Project_Name.unique()
 if len(companies_not_in_dim_company) > 0:
@@ -29,6 +27,28 @@ df_concat = pd.concat(list_df, ignore_index=True)
 
 #transform df_concat
 df_revenue_opex = transform_revenue_opex(df_concat, list_of_months, df_selector, df_dim_company, dim_fx)
+
+#add amortization
+df_amortization = pd.read_excel(path_amortization, sheet_name="Dataload")
+list_of_months = [x[0:3] + "-" + str(YEAR)[-2:] for x in list(calendar.month_name) if x != ""]
+cols_selected_year = [col for col in df_amortization.columns if type(col) == datetime and col.year == YEAR]
+rename_selected_year = [col.strftime("%b-%y") for col in df_amortization.columns if type(col) == datetime and col.year == YEAR]
+dict_rename_dates = dict(zip(cols_selected_year, rename_selected_year))
+df_amortization.rename(columns=dict_rename_dates, inplace=True)
+df_amortization = df_amortization.melt(
+    id_vars = ["Project_Name", "PL_Account"],
+    value_vars = list_of_months,
+    var_name = "Date",
+    value_name = "USD_Amount"
+)
+df_amortization = df_amortization[df_amortization.USD_Amount != 0]
+df_amortization.reset_index(drop=True, inplace=True)
+
+#correct date
+df_amortization["Date"] = pd.to_datetime(df_amortization.Date, format="%b-%y")
+
+#concat
+df_revenue_opex = pd.concat([df_revenue_opex, df_amortization], ignore_index=True)
 
 #output file
 statement_line = "revenue_opex"

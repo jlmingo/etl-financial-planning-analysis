@@ -9,9 +9,10 @@ scenario="BU23"
 path_asset_management_input = r"C:\Users\JorgeLopezMingo\Matrix Renewables Spain SLU\MATRIX RENEWABLES - Data model\Input Data\Revenue_OPEX\221018_Matrix Renewables 2023 OM Budget - portfolio_v2.xlsx"
 path_capex_global = r"C:\Users\JorgeLopezMingo\Matrix Renewables Spain SLU\MATRIX RENEWABLES - Data model\Input Data\CAPEX_DEVEX\FollowUp_Budget CAPEX_Global_budget23.xlsm"
 path_capex_chile = r"C:\Users\JorgeLopezMingo\Matrix Renewables Spain SLU\MATRIX RENEWABLES - Data model\Input Data\CAPEX_DEVEX\FollowUp_Budget CAPEX_Chile_budget23.xlsm"
+path_amortization = r"C:\Users\JorgeLopezMingo\Matrix Renewables Spain SLU\MATRIX RENEWABLES - Data model\Input Data\Amortization\bu23_amortization.xlsx"
 path_dim_project_capex = r"C:\Users\JorgeLopezMingo\Matrix Renewables Spain SLU\MATRIX RENEWABLES - Data model\Dimensions\DIM_PROJECT_CAPEX.xlsx"
-path_dim_company = r"C:\Users\JorgeLopezMingo\Matrix Renewables Spain SLU\MATRIX RENEWABLES - Documentos\MATRIX RENEWABLES\1. Company\4. Accounting\Data model\Dimensions\DIM_COMPANY.xlsx"
-path_dim_accounts = r"C:\Users\JorgeLopezMingo\Matrix Renewables Spain SLU\MATRIX RENEWABLES - Documentos\MATRIX RENEWABLES\1. Company\4. Accounting\Data model\Dimensions\DIM_PL_ACCOUNT_BU23.xlsx"
+path_dim_company = r"C:\Users\JorgeLopezMingo\Matrix Renewables Spain SLU\MATRIX RENEWABLES - Data model\Dimensions\DIM_COMPANY.xlsx"
+path_dim_accounts = r"C:\Users\JorgeLopezMingo\Matrix Renewables Spain SLU\MATRIX RENEWABLES - Data model\Dimensions\DIM_PL_ACCOUNT_BU23.xlsx"
 output_path = r"C:\Users\JorgeLopezMingo\Matrix Renewables Spain SLU\MATRIX RENEWABLES - Data model\Output"
 
 #dim_accounts
@@ -40,6 +41,7 @@ companies_spv_selector = set(df_selector.Company_Name.unique())
 #dim_company
 df_dim_company = pd.read_excel(path_dim_company, sheet_name="Dataload")
 companies_dim_company = set(df_dim_company.Project_Name.unique())
+companies_dim_company_capex = set(df_dim_company.Project_Name_Alt.unique())
 
 #dim_projects
 dim_project_capex = pd.read_excel(path_dim_project_capex, sheet_name="Dataload")

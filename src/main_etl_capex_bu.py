@@ -3,7 +3,7 @@ import numpy as np
 import os
 from functions_etl_bu import get_capex_sheet_data, check_nulls
 from inputs import (df_dim_company, dim_fx, YEAR, path_capex_global, dim_country_currency,
-dim_project_capex, path_capex_chile, output_path, scenario, filter_out, companies_dim_company_capex)
+dim_project_capex, path_capex_chile, output_path, scenario, filter_out, companies_dim_company_capex, only_devex_tabs)
 
 #general values
 cash_items = {
@@ -21,13 +21,13 @@ only_devex_tabs = [
     "EN494a", "EN494c", "MOLE", "TP02",
     "CALTO", "CASTELGOFF2", "BOSARO", "ROVIGO", "VALSAMOGGIA",
     "FR01", "TR01", "ENNA1",
-    "SIGNORA", "SPARACIA", "VALLATA", "ISCHIA DI CASTRO",
+    "SIGNORA", "SPARACIA", "VALLATA", "ISCHIA DI CASTRO", "RANDAZZO 1"
 ]
 
 assert set(only_devex_tabs).issubset(projects_capex), "Warning, review values."
 
 #exclude detected tabs not to be included
-exclude_tabs = ["SUMMARY USD", "SUMMARY LCY", "INDEX", "PROJECT DB", "SCENARIOS"]
+exclude_tabs = ["SUMMARY USD", "SUMMARY LCY", "INDEX", "PROJECT DB", "SCENARIOS", "BAJO I", "BAJO II", "ASSUMPTIONS"]
 
 #get values only for analysis
 projects_to_analyze = [project for project in projects_capex if project not in exclude_tabs and ">>>" not in project]
@@ -204,6 +204,7 @@ df_capex_total = df_capex_total[~df_capex_total.Project_Name.isin(filter_out)]
 df_capex_total.reset_index(drop=True, inplace=True)
 #set flag for and devex capex that should not be considered
 #explanation: GASKELL  (devex+capex) and ZARATAN (only devex) were incurred in 2022. In 2023 they will be only cash.
+#TODO: check this below! USA does not include GASKELL
 condition = (df_capex_total["Project_Name"] == "USA") | ((df_capex_total["Project_Name"] == "ZARATAN") & (df_capex_total["Investment_Type"] == "DEVEX"))
 df_capex_total["Only_Cash"] = np.where(condition, "Only_Cash", "Cash_and_Balance")
 
@@ -214,6 +215,15 @@ statement_line="capex_devex"
 # output_path_parquet = os.path.join(output_path, scenario + "_" + statement_line + "_full_life_" + ".parquet")
 # df_capex_total.to_csv(output_path_csv, index=False)
 # df_capex_total.to_parquet(output_path_parquet, index=False)
+
+#remove colombia 6 last months
+idx_drop = df_capex_total[(df_capex_total.Project_Name.str.contains("LOS LLANOS")) & (df_capex_total.Date.dt.month > 6)].index
+df_capex_total.drop(idx_drop, inplace=True)
+df_capex_total.reset_index(drop=True, inplace=True)
+
+#add capex for Deployment Hedge
+
+#add devex for Hyren
 
 #OUTPUT CAPEX-DEVEX23
 df_capex_total = df_capex_total[df_capex_total.Date.dt.year == YEAR]

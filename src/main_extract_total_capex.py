@@ -1,72 +1,96 @@
-#this file generates a dataframe with total capex from excel files - used for amortization calculation
 import pandas as pd
-from inputs import (scenario, YEAR, path_capex_global, path_capex_chile, filter_out)
+import os
+from functions_etl_bu import get_total_capex, check_nulls
+from inputs import path_capex_global, path_capex_chile, only_devex_tabs, output_path, scenario, dim_fx, dim_country_currency, dim_project_capex
 
-#general values
-cash_items = ["Total Cash Flow EPC ", "VAT payments ", ""]
-
-#TODO add filter to get VAT
-
-#TODO add filter to exclude some companies from Chile
-
-#global capex
-excel_file = pd.ExcelFile(path_capex_global)
-projects_capex = set(excel_file.sheet_names)
-
-#GLOBAL tabs where only devex is taken
-only_devex_tabs = [
-    "ALTEN GREENFIELD", "ROLWIND GREENFIELD", "SAN GIULIANO",
-    "EN494a", "EN494c", "MOLE", "TP02",
-    "CALTO", "CASTELGOFF2", "BOSARO", "ROVIGO", "VALSAMOGGIA",
-    "FR01", "TR01", "ENNA1",
-    "SIGNORA", "SPARACIA", "VALLATA", "ISCHIA DI CASTRO"
-]
-
-#to get capex, only sheets without >>> or not included in devex tabs will be considered
-assert set(only_devex_tabs).issubset(projects_capex), "Warning, review values."
-
-#exclude detected tabs not to be included
-exclude_tabs = ["SUMMARY USD", "SUMMARY LCY", "INDEX", "PROJECT DB"]
-
-#get values only for analysis
+#extract capex global
+projects_capex = pd.ExcelFile(path_capex_global).sheet_names
+exclude_tabs = set(["SUMMARY USD", "SUMMARY LCY", "INDEX", "PROJECT DB", "SCENARIOS", "ASSUMPTIONS", "SUMMARY"])
 projects_to_analyze = [project for project in projects_capex if project not in exclude_tabs and ">>>" not in project]
 
-#as we are taking only capex, we will also filter these:
-projects_to_analyze = [project for project in projects_to_analyze if project not in only_devex_tabs]
+list_df = []
+for sheet_name in projects_to_analyze:
+    try:
+        df = get_total_capex(path_capex_global, sheet_name, only_devex_tabs)
+        list_df.append(df)
+    except Exception as e:
+        print(e)
+    
 
-###################                      ###################
-################### PROCESS GLOBAL CAPEX ###################
-###################                      ###################
+#TODO: correct currency
+
+
+
+df_concat_global = pd.concat(list_df, ignore_index=True)
+df_concat_global.reset_index(drop=True, inplace=True)
+
+df_concat_global.rename(columns={"Amount": "LC_Amount"}, inplace=True)
+
+#get country
+df_concat_global = df_concat_global.merge(dim_project_capex[["Project_Name", "Country"]], on="Project_Name", how="left")
+check_nulls(df_concat_global, "Country")
+
+#get currency and fx
+df_concat_global = df_concat_global.merge(dim_country_currency[["Country", "Currency"]], on="Country", how="left")
+check_nulls(df_concat_global, "Currency")
+
+df_concat_global = df_concat_global.merge(dim_fx[["Currency", "FX"]], on="Currency", how="left")
+check_nulls(df_concat_global, "FX")
+
+df_concat_global["USD_Amount"] = df_concat_global["LC_Amount"] / df_concat_global["FX"]
+
+amount = df_concat_global[(df_concat_global.Project_Name == "OLIVARES") & (df_concat_global.Investment_Type.isin(["DEVEX", "CAPEX"]))].USD_Amount.sum()
+print(amount)
+#drop columns not used
+col_drop = ["Country", "Currency", "FX"]
+df_concat_global.drop(col_drop, axis=1, inplace=True)
+
+#extract capex chile
+projects_capex = pd.ExcelFile(path_capex_chile).sheet_names
+exclude_tabs = set(["SUMMARY USD", "SUMMARY LCY", "INDEX", "PROJECT DB", "SCENARIOS", "ASSUMPTIONS"])
+projects_to_analyze = [project for project in projects_capex if project not in exclude_tabs and ">>>" not in project]
 
 list_df = []
-list_sheets_not_used = []
 for sheet_name in projects_to_analyze:
-    print("\n")
-    print(f"///READING {sheet_name}///")
-    df = pd.read_excel(path_capex_global, sheet_name=sheet_name, skiprows=range(3))
+    try:
+        df = get_total_capex(path_capex_chile, sheet_name, only_devex_tabs)
+        list_df.append(df)
+    except Exception as e:
+        print(e)
     
-    #check of Cash Item is in columns
-    if "Cash Item " not in df.columns:
-        print(f"Warning: {sheet_name} will not be analyzed as column 'Cash Item' have not been detected.")
-        list_sheets_not_used.append(sheet_name)
-        continue
-    
-    values_cash_items = set(df["Cash Item "].unique())
-    
-    #check if all required cash items are present in file
-    if cash_items.issubset(values_cash_items):
-        print(f"Treating {sheet_name}.")
-        try:
-            df = get_capex_sheet_data(df.copy(), sheet_name, YEAR, only_devex_tabs)
-            list_df.append(df)
-        except Exception as e:
-            print(f"{sheet_name} will not be treated due to the following exception:")
-            print(e)
-            list_sheets_not_used.append(sheet_name)
-            continue
-        
-    else:
-        print(f"Warning: {sheet_name} will not be analyzed as required cash items have not been detected.")
-        list_sheets_not_used.append(sheet_name)
 
-df_capex_global = pd.concat(list_df, ignore_index=True)
+df_concat_chile = pd.concat(list_df, ignore_index=True)
+df_concat_chile.reset_index(drop=True, inplace=True)
+df_concat_chile.rename(columns={"Amount": "USD_Amount"}, inplace=True)
+
+#get currency and fx - for chile the data is in USD
+df_concat_chile["Currency"] = "CLP"
+
+
+df_concat_chile = df_concat_chile.merge(dim_fx[["Currency", "FX"]], on="Currency", how="left")
+check_nulls(df_concat_chile, "FX")
+
+df_concat_chile["LC_Amount"] = df_concat_chile["USD_Amount"] * df_concat_chile["FX"]
+df_concat_chile["LC_Amount"] = df_concat_chile["LC_Amount"].round(4)
+
+#drop columns not used
+col_drop = ["Currency", "FX"]
+df_concat_chile.drop(col_drop, axis=1, inplace=True)
+
+df_concat_chile.to_parquet("../output/check_chile.parquet", index=False)
+#TODO: add local currency
+
+df_capex_final = pd.concat([df_concat_global, df_concat_chile], ignore_index=True)
+
+
+#remove colombia 6 last months
+# idx_drop = df_capex_final[(df_capex_final.Project_Name.str.contains("LOS LLANOS")) & (df_capex_final.Date.dt.month > 6)].index
+# df_capex_final.drop(idx_drop, inplace=True)
+# df_capex_final.reset_index(drop=True, inplace=True)
+
+#OUTPUT CAPEX-DEVEX23
+statement_line = "total_capex_whole_life"
+output_path_csv = os.path.join(output_path, scenario + "_" + statement_line + ".csv")
+output_path_parquet = os.path.join(output_path, scenario + "_" + statement_line + ".parquet")
+df_capex_final.to_csv(output_path_csv, index=False)
+df_capex_final.to_parquet(output_path_parquet, index=False)

@@ -13,6 +13,10 @@ path_amortization = r"C:\Users\JorgeLopezMingo\Matrix Renewables Spain SLU\MATRI
 path_dim_project_capex = r"C:\Users\JorgeLopezMingo\Matrix Renewables Spain SLU\MATRIX RENEWABLES - Data model\Dimensions\DIM_PROJECT_CAPEX.xlsx"
 path_dim_company = r"C:\Users\JorgeLopezMingo\Matrix Renewables Spain SLU\MATRIX RENEWABLES - Data model\Dimensions\DIM_COMPANY.xlsx"
 path_dim_accounts = r"C:\Users\JorgeLopezMingo\Matrix Renewables Spain SLU\MATRIX RENEWABLES - Data model\Dimensions\DIM_PL_ACCOUNT_BU23.xlsx"
+path_financing = r"C:\Users\JorgeLopezMingo\Matrix Renewables Spain SLU\MATRIX RENEWABLES - Data model\Input Data\Financing\BU23_Financing_Schedule.xlsx"
+path_capex_parquet = r"C:\Users\JorgeLopezMingo\Matrix Renewables Spain SLU\MATRIX RENEWABLES - Data model\Output\BU23_capex_devex.parquet"
+path_platform_cost = r"C:\Users\JorgeLopezMingo\Matrix Renewables Spain SLU\MATRIX RENEWABLES - Data model\Input Data\Platform_Expenses\BU23_Platform_Cost_Dataload.xlsx"
+path_dim_department = r"C:\Users\JorgeLopezMingo\Matrix Renewables Spain SLU\MATRIX RENEWABLES - Data model\Dimensions\DIM_DEPARTMENTS.xlsx"
 output_path = r"C:\Users\JorgeLopezMingo\Matrix Renewables Spain SLU\MATRIX RENEWABLES - Data model\Output"
 
 #dim_accounts
@@ -32,10 +36,10 @@ df_selector.loc[df_selector.Project_Name=="GASKELL", "Company_Name"] = "Gaskell 
 #print projects with no SPV associated
 project_without_spv = df_selector[df_selector.Company_Name.isnull()].Project_Name.unique()
 if len(project_without_spv) > 0:
-    print("Warning: the following projects have no SPV associated and will not be included:")
+    print("Warning: the following projects have no SPV associated:")
     print(project_without_spv)
 
-df_selector = df_selector[df_selector.Company_Name.notnull()]
+#df_selector = df_selector[df_selector.Company_Name.notnull()]
 companies_spv_selector = set(df_selector.Company_Name.unique())
 
 #dim_company
@@ -64,4 +68,17 @@ dim_fx = pd.DataFrame(dict_fx)
 #filter out capex tabs
 filter_out = [
     "LOMA TENDIDA", "FUNDO SAN ISIDRO", "FONTANA", "MONTENEGRO"   
+]
+
+#dim department
+df_dim_department = pd.read_excel(path_dim_department, sheet_name="Dataload")
+
+#only devex tabs
+#GLOBAL tabs where only devex is taken
+only_devex_tabs = [
+    "ALTEN GREENFIELD", "ROLWIND GREENFIELD", "SAN GIULIANO",
+    "EN494a", "EN494c", "MOLE", "TP02",
+    "CALTO", "CASTELGOFF2", "BOSARO", "ROVIGO", "VALSAMOGGIA",
+    "FR01", "TR01", "ENNA1",
+    "SIGNORA", "SPARACIA", "VALLATA", "ISCHIA DI CASTRO",
 ]

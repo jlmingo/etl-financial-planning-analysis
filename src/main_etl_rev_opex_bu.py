@@ -50,6 +50,11 @@ df_amortization["Date"] = pd.to_datetime(df_amortization.Date, format="%b-%y")
 #concat
 df_revenue_opex = pd.concat([df_revenue_opex, df_amortization], ignore_index=True)
 
+#eliminate Colombia
+idx_drop = df_revenue_opex[(df_revenue_opex.Project_Name.str.contains("LOS LLANOS")) & (df_revenue_opex.Date.dt.month > 6)].index
+df_revenue_opex.drop(idx_drop, inplace=True)
+df_revenue_opex.reset_index(drop=True, inplace=True)
+
 #output file
 statement_line = "revenue_opex"
 output_path_csv = os.path.join(output_path, scenario + "_" + statement_line + ".csv")

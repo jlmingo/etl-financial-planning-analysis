@@ -24,10 +24,6 @@ only_devex_tabs = [
     "SIGNORA", "SPARACIA", "VALLATA", "ISCHIA DI CASTRO", "RANDAZZO 1"
 ]
 
-#tabs for 2024 - take everything
-only_devex_tabs = [
-]
-
 assert set(only_devex_tabs).issubset(projects_capex), "Warning, review values."
 
 #exclude detected tabs not to be included

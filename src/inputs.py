@@ -4,6 +4,8 @@ import pandas as pd
 YEAR=2023
 scenario="BU23"
 
+#YEAR=2024
+#scenario="BU23_2024"
 
 #paths
 path_asset_management_input = r"C:\Users\JorgeLopezMingo\Matrix Renewables Spain SLU\MATRIX RENEWABLES - Data model\Input Data\Revenue_OPEX\221018_Matrix Renewables 2023 OM Budget - portfolio_v2.xlsx"
@@ -17,6 +19,12 @@ path_financing = r"C:\Users\JorgeLopezMingo\Matrix Renewables Spain SLU\MATRIX R
 path_capex_parquet = r"C:\Users\JorgeLopezMingo\Matrix Renewables Spain SLU\MATRIX RENEWABLES - Data model\Output\BU23_capex_devex.parquet"
 path_platform_cost = r"C:\Users\JorgeLopezMingo\Matrix Renewables Spain SLU\MATRIX RENEWABLES - Data model\Input Data\Platform_Expenses\BU23_Platform_Cost_Dataload.xlsx"
 path_dim_department = r"C:\Users\JorgeLopezMingo\Matrix Renewables Spain SLU\MATRIX RENEWABLES - Data model\Dimensions\DIM_DEPARTMENTS.xlsx"
+path_capex_usa = r"C:\Users\JorgeLopezMingo\Matrix Renewables Spain SLU\MATRIX RENEWABLES - Data model\Input Data\CAPEX_DEVEX\MR US Budgetting Sheet v2.xlsx"
+
+
+#TODO: check if we want the normal figure or the increased figure (alt fx, increasing 1.1 opex)
+#path_revenue_opex = r"C:\Users\JorgeLopezMingo\Matrix Renewables Spain SLU\MATRIX RENEWABLES - Data model\Output\BU23_revenue_opex.parquet"
+path_revenue_opex = r"C:\Users\JorgeLopezMingo\Matrix Renewables Spain SLU\MATRIX RENEWABLES - Data model\Output\BU23_revenue_opex_alt_fx.parquet"
 output_path = r"C:\Users\JorgeLopezMingo\Matrix Renewables Spain SLU\MATRIX RENEWABLES - Data model\Output"
 
 #dim_accounts

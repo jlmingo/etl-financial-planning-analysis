@@ -222,13 +222,6 @@ def get_capex_sheet_data(df, sheet_name, year, only_devex_tabs):
     
     else:
         df = df_devex
-    
-    #correct VAT lines in Investment_Type
-    #df["Investment_Type"] = np.where(
-    #    df["Cash_Item"].str.contains("VAT"),
-    #    "VAT",
-    #    df["Investment_Type"]
-    #)
 
     #melt table
     id_vars_values = ["Project_Name", "Cash_Item", "Milestones", "%Milestone", "Investment_Type"]
@@ -250,6 +243,105 @@ def get_capex_sheet_data(df, sheet_name, year, only_devex_tabs):
     df["Date"] = pd.to_datetime(df.Date, format="%b-%y")
     
     return df
+
+def get_capex_sheet_data_2024(df, sheet_name, year):
+    
+    print(f"Executing transform function for {sheet_name}")
+    
+    #prepare columns and renames
+    list_of_months = [x[0:3] + "-" + str(year)[-2:] for x in list(calendar.month_name) if x != ""]
+    cols_selected_year = [col for col in df.columns if type(col) == datetime.datetime and col.year == year]
+    rename_selected_year = [col.strftime("%b-%y") for col in df.columns if type(col) == datetime.datetime and col.year == year]
+    # cols_selected_year = [col for col in df.columns if type(col) == datetime.datetime]
+    # rename_selected_year = [col.strftime("%b-%y") for col in df.columns if type(col) == datetime.datetime ]
+    dict_rename_dates = dict(zip(cols_selected_year, rename_selected_year))
+    df.rename(columns=dict_rename_dates, inplace=True)
+    
+    #Select and rename columns
+    selected_columns = [
+        "Project Name ",
+        "Cash Item ", "Milestones", "%Milestone", 
+    ]
+    selected_columns.extend(rename_selected_year)
+    df = df[selected_columns]
+    rename_columns = {
+        "Project Name ": "Project_Name",
+        "Cash Item ": "Cash_Item"
+    }
+    df.rename(columns=rename_columns, inplace=True)
+
+    #TODO remove this manual step when data is corrected in the source
+    #correct USA
+    if sheet_name == "USA":
+        df["Project_Name"] = "USA"
+
+    #Correct project names
+    if sheet_name == "ALTEN GREENFIELD":
+        df["Project_Name"] = "ALTEN GREENFIELD"
+
+    #devex data
+    a = df[df.Cash_Item == "Development Payments "].index
+    assert len(a) == 1
+    a = a[0]
+
+    b = df[df.Cash_Item == "Total Cash Flow Developmemnt "].index
+    assert len(b) == 1
+    b = b[0]
+
+    df_devex = df.iloc[a+1:b,:].copy()
+    df_devex["Investment_Type"] = "DEVEX"
+
+    #correct VAT lines in Investment_Type for devex
+    df_devex["Investment_Type"] = np.where(
+        df_devex["Cash_Item"].str.contains("VAT"),
+        "VAT DEVEX",
+        df_devex["Investment_Type"]
+    )
+
+    #capex data
+    a = df[df.Cash_Item == "EPC Payments "].index
+    assert len(a) == 1
+    a = a[0]
+
+    b = df[df.Cash_Item == "Total Cash Flow EPC "].index
+    assert len(b) == 1
+    b = b[0]
+
+    df_capex = df.iloc[a+1:b, :].copy()
+    df_capex["Investment_Type"] = "CAPEX"
+
+    #correct VAT lines in Investment_Type for devex
+    df_capex["Investment_Type"] = np.where(
+        df_capex["Cash_Item"].str.contains("VAT"),
+        "VAT CAPEX",
+        df_capex["Investment_Type"]
+    )
+
+    #concat dataframes
+    df = pd.concat([df_devex, df_capex], ignore_index=True)
+    df.reset_index(drop=True, inplace=True)
+
+    #melt table
+    id_vars_values = ["Project_Name", "Cash_Item", "Milestones", "%Milestone", "Investment_Type"]
+    df = (pd.melt(
+        df,
+        id_vars=id_vars_values,
+        value_vars=rename_selected_year,
+        var_name="Date",
+        value_name="Amount"))
+    
+    #correct data where there is a dash instead of a 0
+    df.loc[:, "Amount"] = np.where(df.Amount == "-", 0, df.Amount)
+    df["Amount"] = df["Amount"].astype("float64")
+    df.Amount.fillna(0, inplace=True)
+    df.loc[:, "Amount"] = df.Amount.round(4)
+    df = df[df.Amount != 0]
+
+    #correct date
+    df["Date"] = pd.to_datetime(df.Date, format="%b-%y")
+    
+    return df
+
 
 def get_total_capex(path, sheet_name, only_devex_tabs):
     print(f"Reading {sheet_name}...")
@@ -323,15 +415,27 @@ def process_financing(path_financing, dict_params, year):
     skiprows = dict_params["skiprows"]
     
     df = pd.read_excel(path_financing, sheet_name=sheet_name, skiprows=skiprows)
+    
     dict_rename_dates, cols_selected_year = return_col_dates(df, year)
     df.rename(columns=dict_rename_dates, inplace=True)
-    
+
+    select_cols = ["Project_Name"]
+    select_cols.extend(dict_rename_dates.values())
+    df = df[select_cols]
+
     for col in df.columns:
         if "Unnamed" in col:
             df.drop(col, inplace=True, axis=1)
     
     if "Total" in df.columns:
         df.drop("Total", inplace=True, axis=1)
+
+    if "Has Cash Flow from Debt in 2023" in df.columns:
+        df.drop("Has Cash Flow from Debt in 2023", inplace=True, axis=1)
+
+    if "Debt Inflow First Date" in df.columns:
+        df.drop("Debt Inflow First Date", inplace=True, axis=1)
+
     df = df[df.Project_Name != "TOTAL"]
     df.reset_index(drop=True, inplace=True)
     
@@ -457,5 +561,133 @@ def process_financing(path_financing, dict_params, year):
     
 #     return df
 
+def return_col_dates_all_years(df):
+    years = set([col.year for col in df.columns if type(col) == datetime.datetime])
+    total_list_month = []
+    for year in years:
+        list_of_months = [x[0:3] + "-" + str(year)[-2:] for x in list(calendar.month_name) if x != ""]
+        total_list_month.extend(list_of_months)
+    cols_selected_year = [col for col in df.columns if type(col) == datetime.datetime]
+    rename_selected_year = [col.strftime("%b-%y") for col in df.columns if type(col) == datetime.datetime]
+    dict_rename_dates = dict(zip(cols_selected_year, rename_selected_year))
+    return dict_rename_dates, cols_selected_year
 
+def get_capex_usa_by_project(path_usa_by_project, year):
     
+    #read excel
+    df = pd.read_excel(path_usa_by_project, sheet_name="Summary", skiprows=range(1))
+    df_orign = df.copy()
+    
+    #remove rows corresponding to totals
+    df = df.iloc[20:]
+    df.reset_index(drop=True, inplace=True)
+    
+    #rename columns with dates
+    dict_rename_dates, cols_selected_year = return_col_dates_all_years(df)
+    df.rename(columns=dict_rename_dates, inplace=True)
+    df.rename(columns={"Unnamed: 0": "Project_Name", "Unnamed: 1": "FNTP_Date"}, inplace=True)
+    df.drop(["Unnamed: 2", "Unnamed: 3"], inplace=True, axis=1)
+    
+    #get values in USD from USD millions
+    df[list(dict_rename_dates.values())] = df[list(dict_rename_dates.values())].fillna(0).multiply(1000000)
+    
+    #get indexes for projects
+    idx = df[df['Project_Name']=="Development Costs"].index
+    idx_projects = [i-1 for i in idx]
+    
+    #indexes for each relevant line
+    index_dev_costs = 1
+    index_devfee_retainer = 2
+    index_post_ntp_capex = 3
+    index_down_payment_modules = 4
+    index_down_payment_epc = 5
+    index_inc_fntp = 8
+    index_inc_equity = 15
+    index_inc_debt = 16
+
+    selected_indexes = [1, 2, 3, 4, 5, 8, 15, 16]
+
+    def get_selected_indexes(idx, selected_indexes):
+        return [idx+selected_index for selected_index in selected_indexes]
+    
+    #iterate over dataframes to get information from every project
+    list_df = []
+    for project_idx in idx_projects:
+        #get project name
+        project_name = df.loc[project_idx, "Project_Name"]
+
+        #get indexes for project's dataframe
+        selected_indexes_projects = get_selected_indexes(project_idx, selected_indexes)
+        df_project = df[df.index.isin(selected_indexes_projects)].copy().reset_index(drop=True)
+
+        #get fntp date
+        fntp_date = df_project.loc[df_project[df_project.Project_Name == "FNTP Flag"].index[0], "FNTP_Date"]
+        df_project["FNTP_Date"] = fntp_date
+
+        #rename columns and assign project name
+        df_project.rename(columns={"Project_Name": "Cash_Item"}, inplace=True)
+        df_project["Project_Name"] = project_name
+
+        #append dataframe to list
+        list_df.append(df_project)
+
+    df_concat = pd.concat(list_df, ignore_index=True)
+    df_concat = df_concat[df_concat.Cash_Item != "FNTP Flag"].reset_index(drop=True)
+    
+    #mapping values for Investment_Type column
+    map_cash_item = {
+    'Development Costs': "DEVEX",
+    'DevFee + Retainer': "DEVEX",
+    'Post NTP-CapEx': "CAPEX",
+    'Down Payment on Modules': "CAPEX",
+    'Down Payment on EPC': "CAPEX",
+    'Actual Monthly Debt Raise': "Debt",
+    'Actual Monthly Equity Raise': "Equity"
+    }
+    
+    #replacement values for lines written differently from origin
+    replace_values = {
+        "Retainer + DevFee": "DevFee + Retainer",
+        "Post-NTP CAPEX": "Post NTP-CapEx"
+    }
+    for key, value in replace_values.items():
+        df_concat["Cash_Item"] = df_concat["Cash_Item"].replace(key, value, regex=False)
+    s1 = set(df_concat.Cash_Item.unique())
+    s2 = set(map_cash_item.keys())
+    assert s1.issubset(s2), s1.difference(s2)
+    
+    #create Investment_Type column
+    df_concat["Investment_Type"] = ""
+    df_concat["Investment_Type"] = df_concat["Cash_Item"].map(map_cash_item)
+    
+    #melt dataframe
+    id_vars_values = ["Project_Name", "Investment_Type", "FNTP_Date", "Cash_Item"]
+    df_melt = pd.melt(
+        df_concat,
+        id_vars=id_vars_values,
+        value_vars=dict_rename_dates.values(),
+        var_name="Date",
+        value_name="USD_Amount"
+    )
+    
+    #datetime format
+    df_melt["Date"] = pd.to_datetime(df_melt["Date"], format="%b-%y")
+    
+    #rounding and remove zeros
+    df_melt["USD_Amount"] = df_melt["USD_Amount"].round(4)
+    df_melt = df_melt[df_melt["USD_Amount"] != 0]
+    df_melt.reset_index(drop=True, inplace=True)
+    
+    #add Investment_Type_Reclassified column
+    condition = (df_melt["Investment_Type"] == "DEVEX") & (df_melt["FNTP_Date"].dt.year == year)
+    df_melt["Investment_Type_Reclassified"] = np.where(
+        condition,
+        "CAPEX",
+        df_melt["Investment_Type"]
+    )
+
+    df_melt["Developer"] = "USA"
+    
+    df_melt.drop("FNTP_Date", inplace=True, axis=1)
+
+    return df_melt

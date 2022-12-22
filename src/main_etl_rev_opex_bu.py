@@ -60,4 +60,4 @@ statement_line = "revenue_opex"
 output_path_csv = os.path.join(output_path, scenario + "_" + statement_line + ".csv")
 output_path_parquet = os.path.join(output_path, scenario + "_" + statement_line + ".parquet")
 df_revenue_opex.to_csv(output_path_csv, index=False)
-df_revenue_opex.to_csv(output_path_parquet, index=False)
+df_revenue_opex.to_parquet(output_path_parquet, index=False)

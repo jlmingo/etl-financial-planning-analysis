@@ -570,20 +570,19 @@ def return_col_dates_all_years(df):
     cols_selected_year = [col for col in df.columns if type(col) == datetime.datetime]
     rename_selected_year = [col.strftime("%b-%y") for col in df.columns if type(col) == datetime.datetime]
     dict_rename_dates = dict(zip(cols_selected_year, rename_selected_year))
-    return dict_rename_dates, cols_selected_year
+    return dict_rename_dates
 
 def get_capex_usa_by_project(path_usa_by_project, year):
     
     #read excel
     df = pd.read_excel(path_usa_by_project, sheet_name="Summary", skiprows=range(1))
-    df_orign = df.copy()
     
     #remove rows corresponding to totals
     df = df.iloc[20:]
     df.reset_index(drop=True, inplace=True)
     
     #rename columns with dates
-    dict_rename_dates, cols_selected_year = return_col_dates_all_years(df)
+    dict_rename_dates = return_col_dates_all_years(df)
     df.rename(columns=dict_rename_dates, inplace=True)
     df.rename(columns={"Unnamed: 0": "Project_Name", "Unnamed: 1": "FNTP_Date"}, inplace=True)
     df.drop(["Unnamed: 2", "Unnamed: 3"], inplace=True, axis=1)
@@ -672,22 +671,66 @@ def get_capex_usa_by_project(path_usa_by_project, year):
     
     #datetime format
     df_melt["Date"] = pd.to_datetime(df_melt["Date"], format="%b-%y")
+    df_melt["FNTP_Date"] = pd.to_datetime(df_melt["FNTP_Date"], format="%b-%y")
     
     #rounding and remove zeros
     df_melt["USD_Amount"] = df_melt["USD_Amount"].round(4)
     df_melt = df_melt[df_melt["USD_Amount"] != 0]
     df_melt.reset_index(drop=True, inplace=True)
-    
-    #add Investment_Type_Reclassified column
-    condition = (df_melt["Investment_Type"] == "DEVEX") & (df_melt["FNTP_Date"].dt.year == year)
-    df_melt["Investment_Type_Reclassified"] = np.where(
-        condition,
-        "CAPEX",
-        df_melt["Investment_Type"]
-    )
 
     df_melt["Developer"] = "USA"
-    
-    df_melt.drop("FNTP_Date", inplace=True, axis=1)
+
+    df_melt["LC_Amount"] = df_melt["USD_Amount"]
 
     return df_melt
+
+def calculate_adjustment_to_capex(df):
+    df_adj = df.copy()
+    
+    df_adj = df_adj[df_adj["FNTP_Date"].notnull()]
+
+    ## adjustment to devex before financial closing ##
+    df_adj = df_adj[(df_adj.Date <= df_adj["FNTP_Date"]) & (df_adj.Investment_Type == "DEVEX")]
+    
+    group_cols = [col for col in df_adj.columns if col not in ["Date", "USD_Amount", "LC_Amount"]]
+    df_adj.drop("Date", inplace=True, axis=1)
+    df_adj = df_adj.groupby(group_cols, as_index=False, dropna=False).sum()
+
+    #adjustment to capex
+    df_adj["Investment_Flag"] = "WIP_to_PPE"
+    df_adj["Date"] = df_adj["FNTP_Date"]
+    #df_adj.rename(columns={"FNTP_Date": "Date"}, inplace=True)
+    df_adj_capex = df_adj.copy()
+    df_adj_capex["Investment_Type"] = "CAPEX"
+
+    #adjustment to devex
+    df_adj["USD_Amount"] = df_adj["USD_Amount"].multiply(-1)
+    df_adj["LC_Amount"] = df_adj["LC_Amount"].multiply(-1)
+
+    #total adjustment until financial close
+    df_adj = pd.concat([df_adj, df_adj_capex], ignore_index=True)
+    df_adj.reset_index(drop=True, inplace=True)
+    
+    ## adjustments post FNTP ##
+    df_adj_2 = df.copy()
+    df_adj_2 = df_adj_2[(df_adj_2.Date > df_adj_2["FNTP_Date"]) & (df_adj_2.Investment_Type == "DEVEX")]
+    df_adj_2["Investment_Flag"] = "WIP_to_PPE"
+    #df_adj_2.rename(columns={"FNTP_Date": "Date"}, inplace=True)
+
+    df_adj_2_capex = df_adj_2.copy()
+    df_adj_2_capex["Investment_Type"] = "CAPEX"
+
+    #adjustment to devex
+    df_adj_2["USD_Amount"] = df_adj_2["USD_Amount"].multiply(-1)
+    df_adj_2["LC_Amount"] = df_adj_2["LC_Amount"].multiply(-1)
+
+    #total adjustment until financial close
+    df_adj_2 = pd.concat([df_adj_2, df_adj_2_capex], ignore_index=True)
+    df_adj_2.reset_index(drop=True, inplace=True)
+    list_concat = [dataframe for dataframe in [df_adj, df_adj_2] if not dataframe.empty]
+    df_final = pd.concat(list_concat, ignore_index=True)
+    
+    df_final = df_final[df_final.USD_Amount != 0].reset_index(drop=True)
+    df_final = df_final[df_final.notnull()].reset_index(drop=True)
+    
+    return df_final

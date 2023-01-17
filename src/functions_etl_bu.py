@@ -142,9 +142,6 @@ def transform_revenue_opex(df_concat, list_of_months, df_selector, df_dim_compan
 def get_capex_sheet_data(df, sheet_name, year, only_devex_tabs):
     
     print(f"Executing transform function for {sheet_name}")
-
-
-    #df = pd.read_excel(path_capex, sheet_name=sheet_name, skiprows=range(3))
     
     #prepare columns and renames
     list_of_months = [x[0:3] + "-" + str(year)[-2:] for x in list(calendar.month_name) if x != ""]

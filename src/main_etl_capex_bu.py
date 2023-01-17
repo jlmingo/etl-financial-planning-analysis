@@ -3,7 +3,8 @@ import numpy as np
 import os
 from functions_etl_bu import get_capex_sheet_data, check_nulls
 from inputs import (df_dim_company, dim_fx, YEAR, path_capex_global, dim_country_currency,
-dim_project_capex, path_capex_chile, output_path, scenario, filter_out, companies_dim_company_capex, only_devex_tabs)
+dim_project_capex, path_capex_chile, output_path, scenario, filter_out, companies_dim_company_capex, only_devex_tabs,
+path_capex_gaskell)
 
 #general values
 cash_items = {
@@ -73,7 +74,7 @@ for sheet_name in projects_to_analyze:
 
 df_capex_global = pd.concat(list_df, ignore_index=True)
 
-#Rename amount as data comes in local currency
+#Rename amount - data comes in local currency
 df_capex_global.rename(columns={"Amount": "LC_Amount"}, inplace=True)
 
 #checks
@@ -197,28 +198,52 @@ df_capex_chile.drop(col_drop, axis=1, inplace=True)
 df_capex_chile.to_parquet("../output/BU23_capex_chile.parquet", index=False)
 df_capex_chile.to_csv("../output/BU23_capex_chile.csv", index=False)
 
+###################                      ###################
+################### PROCESS GASKELL CAPEX ###################
+###################                      ###################
+
+#general values
+cash_items = {
+    "Development Payments ", "Total Cash Flow Developmemnt ",
+    "EPC Payments ", "Total Cash Flow EPC "
+}
+
+#gaskell capex
+print(f"///READING GASKELL///")
+df_capex_gaskell = pd.read_excel(path_capex_gaskell, sheet_name="Gaskell", skiprows=range(3))
+
+#check of Cash Item is in columns
+if "Cash Item " not in df_capex_gaskell.columns:
+    print(f"Warning: Gaskell will not be analyzed as column 'Cash Item' have not been detected.")
+
+values_cash_items = set(df_capex_gaskell["Cash Item "].unique())
+
+#check if all required cash items are present in file
+if cash_items.issubset(values_cash_items):
+    print(f"Treating Gaskell.")
+    df_capex_gaskell = get_capex_sheet_data(df_capex_gaskell.copy(), "Gaskell", YEAR, [])
+    
+else:
+    raise("Error, check Gaskell.")
+    
+#Rename amount - data comes in local currency
+df_capex_gaskell.rename(columns={"Amount": "LC_Amount"}, inplace=True)
+df_capex_gaskell["LC_Amount"] = df_capex_gaskell["LC_Amount"].multiply(1000)
+df_capex_gaskell["USD_Amount"] = df_capex_gaskell["LC_Amount"]
+
 #total output
-df_capex_total = pd.concat([df_capex_global, df_capex_chile], ignore_index=True)
+df_capex_total = pd.concat([df_capex_global, df_capex_chile, df_capex_gaskell], ignore_index=True)
 
 #filter out projects that will not be included
 
-assert set(filter_out).issubset(set(df_capex_total.Project_Name.unique()))
+#assert set(filter_out).issubset(set(df_capex_total.Project_Name.unique()))
 
 df_capex_total = df_capex_total[~df_capex_total.Project_Name.isin(filter_out)]
 df_capex_total.reset_index(drop=True, inplace=True)
 #set flag for and devex capex that should not be considered
-#explanation: GASKELL  (devex+capex) and ZARATAN (only devex) were incurred in 2022. In 2023 they will be only cash.
-#TODO: check this below! USA does not include GASKELL
-condition = (df_capex_total["Project_Name"] == "USA") | ((df_capex_total["Project_Name"] == "ZARATAN") & (df_capex_total["Investment_Type"] == "DEVEX"))
-df_capex_total["Only_Cash"] = np.where(condition, "Only_Cash", "Cash_and_Balance")
+#NOTE: GASKELL (devex+capex) and ZARATAN (only devex) were incurred in 2022. In 2023 they will be only cash.
 
 statement_line="capex_devex"
-
-#OUTPUT FULL CAPEX-DEVEX
-# output_path_csv = os.path.join(output_path, scenario + "_" + statement_line + "_full_life_" + ".csv")
-# output_path_parquet = os.path.join(output_path, scenario + "_" + statement_line + "_full_life_" + ".parquet")
-# df_capex_total.to_csv(output_path_csv, index=False)
-# df_capex_total.to_parquet(output_path_parquet, index=False)
 
 #remove colombia 6 last months
 idx_drop = df_capex_total[(df_capex_total.Project_Name.str.contains("LOS LLANOS")) & (df_capex_total.Date.dt.month > 6)].index

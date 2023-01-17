@@ -20,8 +20,8 @@ path_capex_parquet = r"C:\Users\JorgeLopezMingo\Matrix Renewables Spain SLU\MATR
 path_platform_cost = r"C:\Users\JorgeLopezMingo\Matrix Renewables Spain SLU\MATRIX RENEWABLES - Data model\Input Data\Platform_Expenses\BU23_Platform_Cost_Dataload.xlsx"
 path_dim_department = r"C:\Users\JorgeLopezMingo\Matrix Renewables Spain SLU\MATRIX RENEWABLES - Data model\Dimensions\DIM_DEPARTMENTS.xlsx"
 path_capex_usa = r"C:\Users\JorgeLopezMingo\Matrix Renewables Spain SLU\MATRIX RENEWABLES - Data model\Input Data\CAPEX_DEVEX\MR US Budgetting Sheet v2.xlsx"
-
-
+path_capex_gaskell = r"C:\Users\JorgeLopezMingo\Matrix Renewables Spain SLU\MATRIX RENEWABLES - Data model\Input Data\CAPEX_DEVEX\CAPEX Cash Flow Gaskell 1.9.23 vAH.xlsx"
+path_revenue_opex_platform = r"C:\Users\JorgeLopezMingo\Matrix Renewables Spain SLU\MATRIX RENEWABLES - Data model\Output\BU23_revenue_opex_platform.parquet"
 #TODO: check if we want the normal figure or the increased figure (alt fx, increasing 1.1 opex)
 #path_revenue_opex = r"C:\Users\JorgeLopezMingo\Matrix Renewables Spain SLU\MATRIX RENEWABLES - Data model\Output\BU23_revenue_opex.parquet"
 path_revenue_opex = r"C:\Users\JorgeLopezMingo\Matrix Renewables Spain SLU\MATRIX RENEWABLES - Data model\Output\BU23_revenue_opex_alt_fx.parquet"

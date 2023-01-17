@@ -8,7 +8,7 @@ df_dim_company, YEAR, path_revenue_opex, output_path, scenario)
 from functions_etl_bu import return_col_dates, check_nulls
 
 #read main data
-df_platform_cost = pd.read_excel(path_platform_cost, sheet_name="Dataload_Alt_FX", skiprows=range(8))
+df_platform_cost = pd.read_excel(path_platform_cost, sheet_name="Dataload_Latest", skiprows=range(8))
 df_platform_cost = df_platform_cost[df_platform_cost.PL_Account.notnull()]
 dict_rename_dates, cols_selected_year = return_col_dates(df_platform_cost, YEAR)
 

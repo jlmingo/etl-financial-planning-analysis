@@ -143,10 +143,10 @@ def get_capex_sheet_data(df, sheet_name, year, only_devex_tabs):
     
     print(f"Executing transform function for {sheet_name}")
     
+    #vamos a coger enero 2024 y lo vamos a asumir como capex incurrido en 2023 pero no pagado hasta 2024
     #prepare columns and renames
-    list_of_months = [x[0:3] + "-" + str(year)[-2:] for x in list(calendar.month_name) if x != ""]
-    cols_selected_year = [col for col in df.columns if type(col) == datetime.datetime and col.year == year]
-    rename_selected_year = [col.strftime("%b-%y") for col in df.columns if type(col) == datetime.datetime and col.year == year]
+    cols_selected_year = [col for col in df.columns if type(col) == datetime.datetime and (type(col) == datetime.datetime) and ((col.year == year) or (col.year == year+1 and col.month == 1))]
+    rename_selected_year = [col.strftime("%b-%y") for col in df.columns if type(col) == datetime.datetime and ((col.year == year) or (col.year == year+1 and col.month == 1))]
     # cols_selected_year = [col for col in df.columns if type(col) == datetime.datetime]
     # rename_selected_year = [col.strftime("%b-%y") for col in df.columns if type(col) == datetime.datetime ]
     dict_rename_dates = dict(zip(cols_selected_year, rename_selected_year))
@@ -173,6 +173,21 @@ def get_capex_sheet_data(df, sheet_name, year, only_devex_tabs):
     #Correct project names
     if sheet_name == "ALTEN GREENFIELD":
         df["Project_Name"] = "ALTEN GREENFIELD"
+
+    if sheet_name == "AS13":
+            df["Project_Name"] = "AS13"
+
+    if sheet_name == "AS2":
+        df["Project_Name"] = "AS2"
+
+    if sheet_name == "AS6":
+            df["Project_Name"] = "AS6"
+
+    if sheet_name == "AS1":
+            df["Project_Name"] = "AS1"
+
+    if sheet_name == "PMGDs":
+            df["Project_Name"] = "ACQ_CHILE"
 
     #devex data
     a = df[df.Cash_Item == "Development Payments "].index
@@ -239,6 +254,25 @@ def get_capex_sheet_data(df, sheet_name, year, only_devex_tabs):
     #correct date
     df["Date"] = pd.to_datetime(df.Date, format="%b-%y")
     
+    #filter 2024 data diferent from capex
+    condition_filter = (df.Date.dt.year == 2024) & (df.Investment_Type != "CAPEX") 
+    index_drop = df[condition_filter].index
+    df.drop(index_drop, inplace=True)
+    df.reset_index(drop=True, inplace=True)
+
+    #set deferment flag
+    df["Deferment_Flag"] = np.where(df["Date"].dt.year == 2024, "DEFERRED_23_PAID_24", "DEFERRED_23_PAID_23")
+    df["Date"] = np.where(df["Date"].dt.year == 2024, df["Date"] + pd.DateOffset(months=-1), df["Date"])
+    
+    #set deferment flag for Gaskell or Zaratan Devex
+    condition_gaskell = (df["Project_Name"] == "Gaskell") & (df["Date"].dt.month <= 2)
+    condition_zaratan_devex = ((df["Project_Name"] == "ZARATAN") & (df["Investment_Type"] == "DEVEX"))
+    df["Deferment_Flag"] = np.where(condition_gaskell | condition_zaratan_devex, "DEFERRED_22_PAID_23", df["Deferment_Flag"])
+    #df["Deferment_Flag"] = np.where(condition_zaratan_devex, "DEFERRED_22_PAID_23", df["Deferment_Flag"])
+
+    #correct for VAT
+    df["Deferment_Flag"] = np.where(~df["Investment_Type"].isin(["CAPEX", "DEVEX"]), np.nan, df["Deferment_Flag"])
+
     return df
 
 def get_capex_sheet_data_2024(df, sheet_name, year):
@@ -397,6 +431,18 @@ def get_total_capex(path, sheet_name, only_devex_tabs):
     if sheet_name == "ALTEN GREENFIELD":
         df["Project_Name"] = "ALTEN GREENFIELD"
 
+    if sheet_name == "AS13":
+                df["Project_Name"] = "AS13"
+
+    if sheet_name == "AS2":
+        df["Project_Name"] = "AS2"
+
+    if sheet_name == "AS6":
+            df["Project_Name"] = "AS6"
+
+    if sheet_name == "AS1":
+            df["Project_Name"] = "AS1"
+
     return df
 
 def return_col_dates(df, year):
@@ -446,117 +492,6 @@ def process_financing(path_financing, dict_params, year):
 
     return df
 
-
-#capex and devex functions
-# def get_total_capex(df, sheet_name, year, only_devex_tabs):
-    
-#     print(f"Executing transform function for {sheet_name}")
-
-
-#     #df = pd.read_excel(path_capex, sheet_name=sheet_name, skiprows=range(3))
-    
-#     #prepare columns and renames
-#     list_of_months = [x[0:3] + "-" + str(year)[-2:] for x in list(calendar.month_name) if x != ""]
-#     cols_selected_year = [col for col in df.columns if type(col) == datetime.datetime and col.year == year]
-#     rename_selected_year = [col.strftime("%b-%y") for col in df.columns if type(col) == datetime.datetime and col.year == year]
-#     dict_rename_dates = dict(zip(cols_selected_year, rename_selected_year))
-#     df.rename(columns=dict_rename_dates, inplace=True)
-    
-#     #Select and rename columns
-#     selected_columns = [
-#         "Project Name ",
-#         "Cash Item ", "Milestones", "%Milestone", 
-#     ]
-#     selected_columns.extend(rename_selected_year)
-#     df = df[selected_columns]
-#     rename_columns = {
-#         "Project Name ": "Project_Name",
-#         "Cash Item ": "Cash_Item"
-#     }
-#     df.rename(columns=rename_columns, inplace=True)
-
-#     #TODO remove this manual step when data is corrected in the source
-#     #correct USA
-#     if sheet_name == "USA":
-#         df["Project_Name"] = "USA"
-
-#     #Correct project names
-#     if sheet_name == "ALTEN GREENFIELD":
-#         df["Project_Name"] = "ALTEN GREENFIELD"
-
-#     #devex data
-#     a = df[df.Cash_Item == "Development Payments "].index
-#     assert len(a) == 1
-#     a = a[0]
-
-#     b = df[df.Cash_Item == "Total Cash Flow Developmemnt "].index
-#     assert len(b) == 1
-#     b = b[0]
-
-#     df_devex = df.iloc[a+1:b,:].copy()
-#     df_devex["Investment_Type"] = "DEVEX"
-
-#     #correct VAT lines in Investment_Type for devex
-#     df_devex["Investment_Type"] = np.where(
-#         df_devex["Cash_Item"].str.contains("VAT"),
-#         "VAT DEVEX",
-#         df_devex["Investment_Type"]
-#     )
-
-#     #capex data - only for selected tabs
-#     if sheet_name not in only_devex_tabs:
-#         a = df[df.Cash_Item == "EPC Payments "].index
-#         assert len(a) == 1
-#         a = a[0]
-
-#         b = df[df.Cash_Item == "Total Cash Flow EPC "].index
-#         assert len(b) == 1
-#         b = b[0]
-
-#         df_capex = df.iloc[a+1:b, :].copy()
-#         df_capex["Investment_Type"] = "CAPEX"
-
-#         #correct VAT lines in Investment_Type for devex
-#         df_capex["Investment_Type"] = np.where(
-#             df_capex["Cash_Item"].str.contains("VAT"),
-#             "VAT CAPEX",
-#             df_capex["Investment_Type"]
-#         )
-
-#         #concat dataframes
-#         df = pd.concat([df_devex, df_capex], ignore_index=True)
-#         df.reset_index(drop=True, inplace=True)
-    
-#     else:
-#         df = df_devex
-    
-#     #correct VAT lines in Investment_Type
-#     #df["Investment_Type"] = np.where(
-#     #    df["Cash_Item"].str.contains("VAT"),
-#     #    "VAT",
-#     #    df["Investment_Type"]
-#     #)
-
-#     #melt table
-#     id_vars_values = ["Project_Name", "Cash_Item", "Milestones", "%Milestone", "Investment_Type"]
-#     df = (pd.melt(
-#         df,
-#         id_vars=id_vars_values,
-#         value_vars=rename_selected_year,
-#         var_name="Date",
-#         value_name="Amount"))
-    
-#     #correct data where there is a dash instead of a 0
-#     df.loc[:, "Amount"] = np.where(df.Amount == "-", 0, df.Amount)
-#     df["Amount"] = df["Amount"].astype("float64")
-#     df.Amount.fillna(0, inplace=True)
-#     df.loc[:, "Amount"] = df.Amount.round(4)
-#     df = df[df.Amount != 0]
-
-#     #correct date
-#     df["Date"] = pd.to_datetime(df.Date, format="%b-%y")
-    
-#     return df
 
 def return_col_dates_all_years(df):
     years = set([col.year for col in df.columns if type(col) == datetime.datetime])
@@ -679,7 +614,18 @@ def get_capex_usa_by_project(path_usa_by_project, year):
 
     df_melt["LC_Amount"] = df_melt["USD_Amount"]
 
-    return df_melt
+    df = df_melt.copy()
+
+    #assign Deferment_Flag to capex 2024 (converting it to capex 2023)
+    #set deferment flag
+    condition_jan_24 = (df["Date"].dt.year == 2024) & (df["Date"].dt.month == 1) & (df["Investment_Type"] == "CAPEX")
+    condition_deferment = (df["Date"].dt.year == 2024) & (df["Date"].dt.month == 1) & (df["Investment_Type"] == "CAPEX")
+    df["Deferment_Flag"] = np.where(condition_deferment, "DEFERRED_23_PAID_24", "DEFERRED_23_PAID_23")
+    df["Date"] = np.where(condition_jan_24, df["Date"] + pd.DateOffset(months=-1), df["Date"])
+
+    df["Deferment_Flag"] = np.where(df["Investment_Type"].isin(["Debt", "Equity"]), np.nan, df["Deferment_Flag"])
+
+    return df
 
 def calculate_adjustment_to_capex(df):
     df_adj = df.copy()

@@ -22,17 +22,17 @@ only_devex_tabs = [
     "EN494a", "EN494c", "MOLE", "TP02",
     "CALTO", "CASTELGOFF2", "BOSARO", "ROVIGO", "VALSAMOGGIA",
     "FR01", "TR01", "ENNA1",
-    "SIGNORA", "SPARACIA", "VALLATA", "ISCHIA DI CASTRO", "RANDAZZO 1"
+    "SIGNORA", "SPARACIA", "VALLATA", "ISCHIA DI CASTRO", "RANDAZZO 1", "BAJO I", "BAJO II"
 ]
 
 #tabs for 2024 - take everything
-only_devex_tabs = [
-]
+#only_devex_tabs = [
+#]
 
 assert set(only_devex_tabs).issubset(projects_capex), "Warning, review values."
 
 #exclude detected tabs not to be included
-exclude_tabs = ["SUMMARY USD", "SUMMARY LCY", "INDEX", "PROJECT DB", "SCENARIOS", "BAJO I", "BAJO II", "ASSUMPTIONS"]
+exclude_tabs = ["SUMMARY USD", "SUMMARY LCY", "INDEX", "PROJECT DB", "SCENARIOS", "ASSUMPTIONS"]
 
 #get values only for analysis
 projects_to_analyze = [project for project in projects_capex if project not in exclude_tabs and ">>>" not in project]
@@ -117,17 +117,6 @@ cash_items = {
 #chile capex
 excel_file = pd.ExcelFile(path_capex_chile)
 projects_capex = set(excel_file.sheet_names)
-
-#chile tabs where only devex is taken
-# only_devex_tabs = [
-#     "ALTEN GREENFIELD", "ROLWIND GREENFIELD", "SAN GIULIANO",
-#     "EN494a", "EN494c", "MOLE", "TP02",
-#     "CALTO", "CASTELGOFF2", "BOSARO", "ROVIGO", "VALSAMOGGIA",
-#     "FR01", "TR01", "ENNA1",
-#     "SIGNORA", "SPARACIA", "VALLATA", "ISCHIA DI CASTRO"
-# ]
-
-#assert set(only_devex_tabs).issubset(projects_capex), "Warning, review values."
 
 #exclude detected tabs not to be included
 exclude_tabs = ["SUMMARY USD", "SUMMARY LCY", "INDEX", "PROJECT DB", "SUMMARY"]
@@ -249,10 +238,6 @@ statement_line="capex_devex"
 idx_drop = df_capex_total[(df_capex_total.Project_Name.str.contains("LOS LLANOS")) & (df_capex_total.Date.dt.month > 6)].index
 df_capex_total.drop(idx_drop, inplace=True)
 df_capex_total.reset_index(drop=True, inplace=True)
-
-#add capex for Deployment Hedge
-
-#add devex for Hyren
 
 #OUTPUT CAPEX-DEVEX23
 df_capex_total = df_capex_total[df_capex_total.Date.dt.year == YEAR]

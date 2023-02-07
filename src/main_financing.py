@@ -83,15 +83,6 @@ df_melt["Date"] = pd.to_datetime(df_melt.Date, format="%b-%y")
 #drop USA lines TODO: add back VAT from USA
 df_melt = df_melt[(df_melt["Project_Name"] != "USA")]
 
-#TODO: this is financing for gaskell... modify
-# debt_usa = pd.DataFrame({
-#     "Project_Name": ["USA"],
-#     "Investment_Type": ["Debt"],
-#     "Cash_Item": [np.nan],
-#     "Date": [pd.to_datetime("2023-01-01")],
-#     "USD_Amount": [42590061.8687]
-# })
-
 #df_melt = pd.concat([df_melt, debt_usa], ignore_index=True)
 
 #OUTPUT FINANCING
@@ -204,10 +195,14 @@ project_exceptions =  [
 condition_project = df_capex_financing.Country.isin(["United States", "Italy", "Spain"]) & ~(df_capex_financing.Project_Name.isin(project_exceptions))
 df_capex_financing["Date_alt"] = np.where(condition_project, df_capex_financing["Date"] + pd.DateOffset(months=2), df_capex_financing["Date"])
 
-
-
+#fill financing defered flag
 print(df_capex_financing)
 print(df_capex_financing.columns)
+condition_fix_defered = (df_capex_financing["Deferment_Flag"].isnull()) & (df_capex_financing["Investment_Type"].isin(["CAPEX", "DEVEX"]))
+
+df_capex_financing["Deferment_Flag"] = np.where(condition_fix_defered, "DEFERRED_23_PAID_23", df_capex_financing["Deferment_Flag"])
+
+
 statement_line = "capex_devex_financing"
 output_path_csv = os.path.join(output_path, scenario + "_" + statement_line + ".csv")
 output_path_parquet = os.path.join(output_path, scenario + "_" + statement_line + ".parquet")

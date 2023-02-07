@@ -81,12 +81,10 @@ filter_out = [
 #dim department
 df_dim_department = pd.read_excel(path_dim_department, sheet_name="Dataload")
 
-#only devex tabs
-#GLOBAL tabs where only devex is taken
 only_devex_tabs = [
     "ALTEN GREENFIELD", "ROLWIND GREENFIELD", "SAN GIULIANO",
     "EN494a", "EN494c", "MOLE", "TP02",
     "CALTO", "CASTELGOFF2", "BOSARO", "ROVIGO", "VALSAMOGGIA",
     "FR01", "TR01", "ENNA1",
-    "SIGNORA", "SPARACIA", "VALLATA", "ISCHIA DI CASTRO",
+    "SIGNORA", "SPARACIA", "VALLATA", "ISCHIA DI CASTRO", "RANDAZZO 1", "BAJO I", "BAJO II"
 ]
